@@ -1,0 +1,216 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Tenant {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  subdomain   String   @unique
+  logoUrl     String?
+  primaryColor String  @default("#1E293B") // Slate 800 default
+  accentColor  String  @default("#0EA5E9") // Sky 500 default
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+  departments Department[]
+  questions   Question[]
+  exams       Exam[]
+  settings    TenantSettings?
+}
+
+model TenantSettings {
+  id                 String  @id @default(uuid())
+  tenantId           String  @unique
+  tenant             Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  allowSelfRegister  Boolean @default(false)
+  ssoEnabled         Boolean @default(false)
+  enforceProctoring  Boolean @default(true)
+}
+
+enum Role {
+  SUPER_ADMIN
+  INST_ADMIN
+  PLACEMENT_OFFICER
+  TRAINER
+  FACULTY
+  STUDENT
+  RECRUITER
+}
+
+model User {
+  id           String   @id @default(uuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email        String   @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  role         Role     @default(STUDENT)
+  batch        String?  // e.g. "2026 Batch"
+  deptId       String?
+  department   Department? @relation(fields: [deptId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  studentExams   StudentExam[]
+  submissions    CodeSubmission[]
+  attendance     Attendance[]
+  readiness      PlacementReadiness?
+  auditLogs      AuditLog[]
+}
+
+model Department {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String   // e.g. "Computer Science & Engineering"
+  code      String   // e.g. "CSE"
+  users     User[]
+}
+
+enum QuestionType {
+  APTITUDE
+  TECHNICAL
+  CODING
+  SUBJECTIVE
+}
+
+model Question {
+  id           String       @id @default(uuid())
+  tenantId     String
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  type         QuestionType
+  title        String
+  content      String       // Markdown question description
+  options      String?      // JSON stringified options for MCQ
+  correctAnswer String      // Correct option or code test solution
+  difficulty   String       // "Easy", "Medium", "Hard"
+  topic        String       // e.g. "Quantitative", "Java", "Linked List"
+  skills       String[]     // e.g. ["problem solving", "dynamic programming"]
+  companies    String[]     // e.g. ["TCS", "Accenture", "Google"]
+  
+  // Coding Specific
+  testCases    String?      // JSON string representing hidden input/output checks
+  templateCode String?      // Starter template code for compiler
+
+  examQuestions ExamQuestion[]
+}
+
+model Exam {
+  id             String        @id @default(uuid())
+  tenantId       String
+  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title          String
+  description    String?
+  durationMinutes Int
+  passingScore   Int           @default(40)
+  negativeMarking Float        @default(0.0)
+  isProctored    Boolean       @default(true)
+  randomizeQuestions Boolean   @default(true)
+  createdAt      DateTime      @default(now())
+  
+  sections       ExamSection[]
+  studentExams   StudentExam[]
+}
+
+model ExamSection {
+  id        String   @id @default(uuid())
+  examId    String
+  exam      Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  name      String   // e.g. "Coding Section", "Aptitude Section"
+  weight    Int      @default(1)
+
+  questions ExamQuestion[]
+}
+
+model ExamQuestion {
+  id        String      @id @default(uuid())
+  sectionId String
+  section   ExamSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  questionId String
+  question  Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  points    Int         @default(10)
+}
+
+enum ExamStatus {
+  SCHEDULED
+  ONGOING
+  COMPLETED
+  EVALUATED
+}
+
+model StudentExam {
+  id          String     @id @default(uuid())
+  examId      String
+  exam        Exam       @relation(fields: [examId], references: [id], onDelete: Cascade)
+  studentId   String
+  student     User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  status      ExamStatus @default(SCHEDULED)
+  score       Int        @default(0)
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  answers     StudentAnswer[]
+}
+
+model StudentAnswer {
+  id            String      @id @default(uuid())
+  studentExamId String
+  studentExam   StudentExam @relation(fields: [studentExamId], references: [id], onDelete: Cascade)
+  questionId    String
+  selectedOption String?
+  textAnswer    String?
+  pointsEarned  Int         @default(0)
+  aiFeedback    String?
+}
+
+model CodeSubmission {
+  id          String   @id @default(uuid())
+  studentId   String
+  student     User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  questionId  String
+  code        String
+  language    String   // e.g. "python", "java", "cpp", "javascript"
+  status      String   // e.g. "ACCEPTED", "WRONG_ANSWER", "RUNTIME_ERROR"
+  runtimeMs   Int      @default(0)
+  memoryKb    Int      @default(0)
+  submittedAt DateTime @default(now())
+}
+
+model Attendance {
+  id        String   @id @default(uuid())
+  studentId String
+  student   User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date
+  status    String   // "PRESENT", "ABSENT"
+  topic     String?  // Training session topic
+}
+
+model PlacementReadiness {
+  id            String   @id @default(uuid())
+  studentId     String   @unique
+  student       User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  overallScore  Int      @default(0) // Placement Readiness Score (0-100)
+  codingScore   Int      @default(0)
+  aptitudeScore Int      @default(0)
+  commScore     Int      @default(0)
+  interviewScore Int     @default(0)
+  recommendations String[] // AI recommendations
+  lastUpdated   DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  ipAddress String?
+  details   String?
+  timestamp DateTime @default(now())
+}
