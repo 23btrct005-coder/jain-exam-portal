@@ -14,7 +14,7 @@ const prisma = new PrismaClient();
 const PORT = process.env.PORT || 5001;
 
 // Use Node.js clustering for scaling on production multicore engines
-if (cluster.isPrimary && process.env.NODE_ENV === 'production') {
+if (cluster.isPrimary && process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
   const numCPUs = os.cpus().length;
   console.log(`Primary server process running. Forking ${numCPUs} worker threads...`);
   for (let i = 0; i < numCPUs; i++) {
@@ -122,7 +122,13 @@ node_memory_usage_bytes{type="heapUsed"} ${process.memoryUsage().heapUsed}
     });
   });
 
-  app.listen(PORT, () => {
-    console.log(`AssessPro worker thread pid ${process.pid} listening on port ${PORT}`);
-  });
+  if (process.env.VERCEL) {
+    console.log("Running in Vercel Serverless Mode");
+  } else {
+    app.listen(PORT, () => {
+      console.log(`AssessPro worker thread pid ${process.pid} listening on port ${PORT}`);
+    });
+  }
+
+  module.exports = app;
 }
