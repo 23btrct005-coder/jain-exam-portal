@@ -10,13 +10,13 @@ const JWT_SECRET = process.env.JWT_SECRET || 'assesspro_super_secret_key';
 export class AuthController {
   
   static async register(req: TenantRequest, res: Response) {
-    const { email, password, firstName, lastName, role, batch, deptName } = req.body;
+    const { usn, password, firstName, lastName, role, batch, deptName } = req.body;
     const tenantId = req.tenantId!;
 
     try {
-      const existingUser = await prisma.user.findUnique({ where: { email } });
+      const existingUser = await prisma.user.findUnique({ where: { usn } });
       if (existingUser) {
-        return res.status(400).json({ error: "User with this email already exists" });
+        return res.status(400).json({ error: "User with this USN already exists" });
       }
 
       const passwordHash = await bcrypt.hash(password, 10);
@@ -37,7 +37,7 @@ export class AuthController {
       const newUser = await prisma.user.create({
         data: {
           tenantId,
-          email,
+          usn,
           passwordHash,
           firstName,
           lastName,
@@ -69,12 +69,12 @@ export class AuthController {
   }
 
   static async login(req: TenantRequest, res: Response) {
-    const { email, password } = req.body;
+    const { usn, password } = req.body;
     const tenantId = req.tenantId!;
 
     try {
       const user = await prisma.user.findFirst({
-        where: { email, tenantId }
+        where: { usn, tenantId }
       });
 
       if (!user) {
@@ -106,6 +106,7 @@ export class AuthController {
         token,
         user: {
           id: user.id,
+          usn: user.usn,
           email: user.email,
           firstName: user.firstName,
           lastName: user.lastName,
@@ -122,7 +123,7 @@ export class AuthController {
 
   static async bulkUploadStudents(req: TenantRequest, res: Response) {
     // Mock parsing CSV/Excel upload and creating users
-    const { students } = req.body; // Expecting array of {email, password, firstName, lastName, batch}
+    const { students } = req.body; // Expecting array of {usn, email, password, firstName, lastName, batch}
     const tenantId = req.tenantId!;
 
     if (!Array.isArray(students)) {
@@ -136,6 +137,7 @@ export class AuthController {
         const newUser = await prisma.user.create({
           data: {
             tenantId,
+            usn: st.usn,
             email: st.email,
             passwordHash: hash,
             firstName: st.firstName,

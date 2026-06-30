@@ -1,52 +1,25 @@
 import { useState } from 'react';
+import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { 
   User, 
-  Terminal, 
   ShieldCheck, 
   Sun, 
   Moon, 
   LayoutDashboard
 } from 'lucide-react';
-import StudentDashboard from './pages/StudentDashboard.tsx';
-import RecruiterPortal from './pages/RecruiterPortal.tsx';
-import AssessmentEngine from './pages/AssessmentEngine.tsx';
-import AdminDashboard from './pages/AdminDashboard.tsx';
+import { useAuth } from './context/AuthContext';
+import { Toaster } from 'react-hot-toast';
 
-interface TenantTheme {
-  primaryColor: string;
-  accentColor: string;
-  logo: string;
-}
+import StudentDashboard from './pages/StudentDashboard';
+import RecruiterPortal from './pages/RecruiterPortal';
+import AssessmentEngine from './pages/AssessmentEngine';
+import AdminDashboard from './pages/AdminDashboard';
+import LoginPage from './pages/LoginPage';
 
-const mockTenants: Record<string, TenantTheme> = {
-  jain: {
-    primaryColor: "#0D2E5C", // JAIN blue
-    accentColor: "#F26E21",  // JAIN Orange
-    logo: "🛡️ JAIN"
-  },
-  oxford: {
-    primaryColor: "#002147", // Oxford Blue
-    accentColor: "#C5A059",  // Muted gold
-    logo: "🎓 Oxford"
-  },
-  mit: {
-    primaryColor: "#A31D1D", // MIT Red
-    accentColor: "#8A8B8C",  // Slate grey
-    logo: "🔬 MIT"
-  }
-};
-
-export default function App() {
-  const [currentTenant, setCurrentTenant] = useState<string>('jain');
-  const [role, setRole] = useState<'STUDENT' | 'RECRUITER' | 'ADMIN'>('STUDENT');
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
+// --- Layout Component ---
+function DashboardLayout() {
+  const { user, logout } = useAuth();
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
-
-  const selectedTheme = mockTenants[currentTenant];
-
-  const handleStartExam = () => {
-    setActiveTab('compiler');
-  };
 
   const toggleTheme = () => {
     const nextTheme = theme === 'dark' ? 'light' : 'dark';
@@ -54,19 +27,16 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', nextTheme);
   };
 
-  // If in compiler mode, render the compiler full-screen
-  if (activeTab === 'compiler') {
-    return (
-      <AssessmentEngine onBackToDashboard={() => setActiveTab('dashboard')} />
-    );
-  }
+  const selectedTheme = {
+    primaryColor: user?.tenantConfig?.primaryColor || "#0D2E5C",
+    accentColor: user?.tenantConfig?.accentColor || "#F26E21",
+    logo: user?.tenantName || "AssessPro"
+  };
 
   return (
     <div className="dashboard-grid" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
-      
       {/* Sidebar navigation */}
       <aside className="dashboard-sidebar">
-        
         {/* Portal branding */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0' }}>
           <div 
@@ -91,41 +61,17 @@ export default function App() {
           </div>
         </div>
 
-        {/* Scoped tenant information switch */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-          <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Simulated Tenant:</label>
-          <select 
-            value={currentTenant} 
-            onChange={e => setCurrentTenant(e.target.value)}
-            style={{ padding: '0.4rem 0.5rem', backgroundColor: 'var(--bg-tertiary)', fontSize: '0.85rem' }}
-          >
-            <option value="jain">JAIN Global Campus</option>
-            <option value="oxford">Oxford College</option>
-            <option value="mit">MIT Campus</option>
-          </select>
-        </div>
-
         {/* Navigation tabs */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem', flex: 1 }}>
           <button 
-            className={`btn ${activeTab === 'dashboard' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setActiveTab('dashboard')}
+            className="btn btn-primary"
             style={{ 
               justifyContent: 'flex-start', 
-              background: activeTab === 'dashboard' ? `linear-gradient(135deg, ${selectedTheme.primaryColor}, #1e293b)` : undefined 
+              background: `linear-gradient(135deg, ${selectedTheme.primaryColor}, #1e293b)`
             }}
           >
             <LayoutDashboard size={18} />
             <span>Workspace</span>
-          </button>
-
-          <button 
-            className="btn btn-secondary" 
-            onClick={() => setActiveTab('compiler')}
-            style={{ justifyContent: 'flex-start' }}
-          >
-            <Terminal size={18} />
-            <span>Coding Sandbox</span>
           </button>
         </div>
 
@@ -137,14 +83,14 @@ export default function App() {
               <User size={16} />
             </div>
             <div>
-              <p style={{ fontSize: '0.85rem', fontWeight: 600 }}>S. Srinivasan</p>
-              <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Role: {role}</p>
+              <p style={{ fontSize: '0.85rem', fontWeight: 600 }}>{user?.firstName} {user?.lastName}</p>
+              <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Role: {user?.role}</p>
             </div>
           </div>
 
           <div style={{ display: 'flex', gap: '0.25rem' }}>
             <button 
-              className={`btn btn-secondary`} 
+              className="btn btn-secondary" 
               onClick={toggleTheme}
               style={{ flex: 1, padding: '0.4rem' }}
               title="Toggle Dark/Light Mode"
@@ -154,35 +100,26 @@ export default function App() {
             
             <button 
               className="btn btn-secondary" 
-              onClick={() => {
-                if (role === 'STUDENT') setRole('RECRUITER');
-                else if (role === 'RECRUITER') setRole('ADMIN');
-                else setRole('STUDENT');
-              }}
-              style={{ flex: 2, padding: '0.4rem', fontSize: '0.75rem' }}
+              onClick={logout}
+              style={{ flex: 2, padding: '0.4rem', fontSize: '0.75rem', backgroundColor: 'var(--danger-color, #ef4444)', color: 'white', border: 'none' }}
             >
-              Switch Role
+              Log Out
             </button>
           </div>
-
         </div>
-
       </aside>
 
       {/* Main dashboard content panel */}
       <main className="dashboard-content">
-        
-        {/* Shell dashboard header banner */}
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
           <div>
             <h2 style={{ fontSize: '1.6rem', color: 'var(--text-primary)' }}>
-              {role === 'STUDENT' ? 'Student Placement Portal' : role === 'RECRUITER' ? 'Recruiter Candidates Center' : 'Platform Administration'}
+              {user?.role === 'STUDENT' ? 'Student Placement Portal' : user?.role === 'RECRUITER' ? 'Recruiter Candidates Center' : 'Platform Administration'}
             </h2>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              Scoped Tenant Branding: <strong style={{ color: selectedTheme.accentColor }}>{selectedTheme.logo}</strong>
+              Tenant: <strong style={{ color: selectedTheme.accentColor }}>{selectedTheme.logo}</strong>
             </p>
           </div>
-          
           <div style={{ display: 'flex', gap: '1rem' }}>
             <span className="badge badge-success" style={{ padding: '0.5rem 1rem' }}>
               <ShieldCheck size={14} style={{ marginRight: '0.25rem' }} /> Active License Verified
@@ -190,25 +127,84 @@ export default function App() {
           </div>
         </header>
 
-        {/* Conditional role render panels */}
-        {role === 'STUDENT' && (
-          <StudentDashboard 
-            tenantName={currentTenant === 'jain' ? 'JAIN Global Campus' : currentTenant === 'oxford' ? 'Oxford College' : 'MIT Campus'} 
-            tenantConfig={selectedTheme}
-            onStartExam={handleStartExam}
-          />
-        )}
-
-        {role === 'RECRUITER' && (
-          <RecruiterPortal />
-        )}
-
-        {role === 'ADMIN' && (
-          <AdminDashboard />
-        )}
-
+        {/* Render child routes here */}
+        <Outlet />
       </main>
-
     </div>
   );
+}
+
+
+// --- Protected Route Wrapper ---
+const ProtectedRoute = ({ allowedRoles }: { allowedRoles?: string[] }) => {
+  const { user, isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">Loading...</div>;
+  }
+
+  if (!isAuthenticated || !user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
+    return <Navigate to="/" replace />; // Or an unauthorized page
+  }
+
+  return <DashboardLayout />;
+};
+
+
+// --- Main App Routing ---
+export default function App() {
+  const { login, isAuthenticated } = useAuth();
+
+  return (
+    <>
+      <Toaster position="top-right" />
+      <Routes>
+        <Route path="/login" element={
+          isAuthenticated ? <Navigate to="/" replace /> : <LoginPage onLoginSuccess={login} />
+        } />
+        
+        {/* Protected Dashboard Routes */}
+        <Route element={<ProtectedRoute />}>
+          {/* Default route redirect based on role */}
+          <Route path="/" element={<RoleRedirect />} />
+          
+          <Route path="/student" element={
+            <StudentDashboard 
+              tenantName="" 
+              tenantConfig={{}} 
+              onStartExam={() => window.location.href = '/compiler'} 
+            />
+          } />
+          <Route path="/recruiter" element={<RecruiterPortal />} />
+          <Route path="/admin" element={<AdminDashboard />} />
+        </Route>
+
+        {/* Compiler Route (Fullscreen, no sidebar) */}
+        <Route path="/compiler" element={
+          <ProtectedRoute allowedRoles={['STUDENT']} /> // Protect but render Assessment Engine directly? 
+          // Wait, DashboardLayout provides the sidebar.
+        }>
+            {/* We'll handle compiler differently if we want no sidebar */}
+        </Route>
+        
+        <Route path="/compiler/full" element={
+            <AssessmentEngine onBackToDashboard={() => window.location.href = '/student'} />
+        } />
+
+      </Routes>
+    </>
+  );
+}
+
+function RoleRedirect() {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" />;
+  
+  if (user.role === 'STUDENT') return <Navigate to="/student" />;
+  if (user.role === 'RECRUITER') return <Navigate to="/recruiter" />;
+  return <Navigate to="/admin" />;
 }

@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import apiClient from '../api/client';
+import toast from 'react-hot-toast';
 import { 
   Building, 
   Users, 
@@ -33,18 +35,21 @@ export default function AdminDashboard() {
     setNewTenant({ name: '', subdomain: '', plan: 'Standard Seat' });
   };
 
-  const triggerAIGenerator = () => {
+  const triggerAIGenerator = async () => {
     setAiLoading(true);
-    setTimeout(() => {
-      setGeneratedQ({
-        title: "Optimized Binary Tree Depth",
-        type: "CODING",
-        topic: "Binary Trees",
-        content: "Calculate minimum depth of a binary tree with O(N) efficiency.",
-        difficulty: "Easy"
+    try {
+      const res = await apiClient.post('/ai/generate-question', {
+        topic: "Data Structures",
+        difficulty: "Medium",
+        type: "CODING"
       });
+      setGeneratedQ(res.data.question);
+      toast.success('Question generated successfully by AI!');
+    } catch (error) {
+      toast.error('Failed to generate question');
+    } finally {
       setAiLoading(false);
-    }, 1200);
+    }
   };
 
   return (

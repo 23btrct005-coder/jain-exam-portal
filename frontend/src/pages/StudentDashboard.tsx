@@ -4,42 +4,59 @@ import {
   Terminal, 
   FileText, 
   Brain, 
-  CheckCircle, 
   Clock, 
   Play, 
   Upload, 
   Sparkles
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import apiClient from '../api/client';
+import toast from 'react-hot-toast';
 
 interface StudentDashboardProps {
-  tenantName: string;
+  tenantName?: string;
   tenantConfig?: {
-    primaryColor: string;
-    accentColor: string;
+    primaryColor?: string;
+    accentColor?: string;
   };
   onStartExam: () => void;
 }
 
-export default function StudentDashboard({ tenantName, tenantConfig, onStartExam }: StudentDashboardProps) {
+export default function StudentDashboard({ onStartExam }: StudentDashboardProps) {
+  const { user } = useAuth();
   const [resumeScore, setResumeScore] = useState<number | null>(null);
   const [analyzingResume, setAnalyzingResume] = useState(false);
   const [skillsFound, setSkillsFound] = useState<string[]>([]);
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
 
-  const handleResumeUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const tenantConfig = user?.tenantConfig || { primaryColor: '#0f172a', accentColor: '#38bdf8' };
+  const tenantName = user?.tenantName || 'AssessPro';
+
+  const handleResumeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     setAnalyzingResume(true);
-    // Simulate AI parsing
-    setTimeout(() => {
-      setResumeScore(84);
-      setSkillsFound(["Java SE", "Python", "SQL", "React", "Docker", "Algorithms"]);
-      setAiSuggestions([
+    
+    try {
+      const file = e.target.files[0];
+      // In a real app, we would upload the file to S3 and pass the URL to the API.
+      // For now, we simulate sending the text content or document to the AI service.
+      const res = await apiClient.post('/ai/analyze-resume', {
+        resumeUrl: file.name
+      });
+      
+      setResumeScore(res.data.score);
+      setSkillsFound(res.data.missingSkills || ["Java SE", "Python", "SQL", "React", "Docker", "Algorithms"]);
+      setAiSuggestions(res.data.recommendations || [
         "Highlight your experience in the REST APIs project.",
         "Add AWS or Google Cloud foundational certification details.",
         "Great: Your profile details match Accenture & Capgemini requirements!"
       ]);
+      toast.success('Resume analyzed successfully!');
+    } catch (error) {
+      toast.error('Failed to analyze resume.');
+    } finally {
       setAnalyzingResume(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -50,7 +67,7 @@ export default function StudentDashboard({ tenantName, tenantConfig, onStartExam
         className="glass-panel" 
         style={{ 
           padding: '2.5rem', 
-          background: `linear-gradient(135deg, ${tenantConfig?.primaryColor || '#0f172a'} 0%, #1e293b 100%)`,
+          background: `linear-gradient(135deg, ${tenantConfig.primaryColor} 0%, #1e293b 100%)`,
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -58,204 +75,140 @@ export default function StudentDashboard({ tenantName, tenantConfig, onStartExam
         }}
       >
         <div>
-          <span className="badge badge-primary" style={{ marginBottom: '0.75rem' }}>First Deployment Customer</span>
-          <h1 style={{ fontSize: '2.4rem', fontFamily: 'var(--font-heading)' }}>Welcome to AssessPro AI</h1>
-          <p style={{ color: 'rgba(255,255,255,0.7)', marginTop: '0.25rem' }}>Scoped Workspace: <strong>{tenantName}</strong></p>
+          <h1 style={{ fontSize: '2rem', fontWeight: 'bold', color: '#fff', marginBottom: '0.5rem' }}>
+            Welcome back, {user?.firstName}!
+          </h1>
+          <p style={{ color: '#cbd5e1', fontSize: '1.1rem' }}>
+            {tenantName} Placement Preparation Portal
+          </p>
         </div>
-        <div style={{ display: 'flex', gap: '1rem' }}>
+        
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           <div style={{ textAlign: 'right' }}>
-            <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)' }}>First deployment target</p>
-            <p style={{ fontWeight: '600' }}>JAIN Global Campus, Bengaluru</p>
+            <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Placement Readiness</p>
+            <p style={{ fontSize: '1.8rem', fontWeight: 800, color: tenantConfig.accentColor }}>72%</p>
+          </div>
+          <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: `conic-gradient(${tenantConfig.accentColor} 72%, #334155 0)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: '45px', height: '45px', backgroundColor: '#1e293b', borderRadius: '50%' }}></div>
           </div>
         </div>
       </div>
 
-      {/* Analytics & Placement Readiness */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
         
-        {/* Placement readiness Score ring */}
-        <div className="glass-panel" style={{ padding: '2rem', display: 'flex', alignItems: 'center', gap: '2rem' }}>
-          <div className="readiness-ring">
-            <svg width="140" height="140" className="score-circle">
-              <circle cx="70" cy="70" r="55" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="10" />
-              <circle cx="70" cy="70" r="55" fill="none" stroke="var(--primary)" strokeWidth="10" 
-                      strokeDasharray="345" strokeDashoffset="69" strokeLinecap="round" />
-            </svg>
-            <span className="score-value">80%</span>
-          </div>
-          <div>
-            <h3 style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Award style={{ color: 'var(--accent)' }} /> Placement Readiness
-            </h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '0.75rem' }}>
-              Your aggregate score indicates high capability readiness. Excellent coding fundamentals.
-            </p>
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <span className="badge badge-success">Coding: Elite</span>
-              <span className="badge badge-primary">Aptitude: High</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Cognitive Scorecard Breakdowns */}
-        <div className="glass-panel" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <h3 style={{ fontSize: '1.2rem' }}>Sub-Section Readiness Scores</h3>
-          
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.25rem' }}>
-              <span>Coding & Algorithms</span>
-              <span style={{ fontWeight: 600, color: 'var(--primary)' }}>88%</span>
-            </div>
-            <div style={{ height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
-              <div style={{ width: '88%', height: '100%', backgroundColor: 'var(--primary)' }}></div>
-            </div>
-          </div>
-
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.25rem' }}>
-              <span>Quantitative & Logical Aptitude</span>
-              <span style={{ fontWeight: 600, color: 'var(--success)' }}>76%</span>
-            </div>
-            <div style={{ height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
-              <div style={{ width: '76%', height: '100%', backgroundColor: 'var(--success)' }}></div>
-            </div>
-          </div>
-
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.25rem' }}>
-              <span>Communication & Personality</span>
-              <span style={{ fontWeight: 600, color: 'var(--warning)' }}>82%</span>
-            </div>
-            <div style={{ height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
-              <div style={{ width: '82%', height: '100%', backgroundColor: 'var(--warning)' }}></div>
-            </div>
-          </div>
-
-        </div>
-
-      </div>
-
-      {/* AI Performance Coach Insights */}
-      <div className="glass-panel" style={{ padding: '2rem', borderLeft: '4px solid var(--accent)' }}>
-        <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: 'var(--accent)' }}>
-          <Sparkles /> AI Performance Coach recommendations
-        </h3>
-        <ul style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', paddingLeft: '1.25rem' }}>
-          <li>
-            <strong style={{ color: 'var(--text-primary)' }}>Topic Focus:</strong> Your Trees & Graphs performance is 12% lower than dynamic programming. Solve 5 problems on BST/Heap structures.
-          </li>
-          <li>
-            <strong style={{ color: 'var(--text-primary)' }}>Company Preparation:</strong> You are 92% ready for TCS Digital and 78% ready for Google Technical Assessment.
-          </li>
-          <li>
-            <strong style={{ color: 'var(--text-primary)' }}>Upcoming Deadlines:</strong> Comprehensive Placement Coding test is scheduled for next Friday. Run practice tests.
-          </li>
-        </ul>
-      </div>
-
-      {/* Two column interactive section */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>
-        
-        {/* Left Column: Scheduled Assessments */}
-        <div className="glass-panel" style={{ padding: '2rem' }}>
+        {/* Active Assessments */}
+        <div className="glass-card" style={{ padding: '1.5rem', borderRadius: '12px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-            <h3 style={{ fontSize: '1.3rem' }}>Active & Upcoming Assessment Panels</h3>
-            <span className="badge badge-primary">2 Active Tests</span>
+            <h3 style={{ fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Terminal className="text-sky-400" /> Active Assessments
+            </h3>
+            <span className="badge" style={{ backgroundColor: 'var(--bg-tertiary)' }}>2 Pending</span>
           </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            
-            {/* Assessment Card 1 */}
-            <div style={{ 
-              padding: '1.5rem', 
-              borderRadius: '8px', 
-              backgroundColor: 'var(--bg-secondary)', 
-              border: '1px solid var(--border-color)',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}>
-              <div>
-                <h4 style={{ fontSize: '1.1rem', marginBottom: '0.25rem' }}>AssessPro National Coding Challenge 2026</h4>
-                <div style={{ display: 'flex', gap: '1rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Clock size={14} /> 90 Mins</span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Terminal size={14} /> Languages: Java, Python, C++</span>
-                </div>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ padding: '1rem', border: '1px solid var(--border-color)', borderRadius: '8px', backgroundColor: 'var(--bg-tertiary)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <strong style={{ color: 'var(--text-primary)' }}>TCS NQT Mock Test 1</strong>
+                <span style={{ fontSize: '0.8rem', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Clock size={14}/> 90 mins</span>
               </div>
-              <button onClick={onStartExam} className="btn btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}>
-                <Play size={14} /> Start assessment
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>Aptitude, Logical Reasoning, and Basic Coding.</p>
+              <button className="btn btn-primary" onClick={onStartExam} style={{ width: '100%', justifyContent: 'center' }}>
+                <Play size={16} style={{ marginRight: '0.5rem' }} /> Start Assessment
               </button>
             </div>
-
-            {/* Assessment Card 2 */}
-            <div style={{ 
-              padding: '1.5rem', 
-              borderRadius: '8px', 
-              backgroundColor: 'var(--bg-secondary)', 
-              border: '1px solid var(--border-color)',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              opacity: 0.75
-            }}>
-              <div>
-                <h4 style={{ fontSize: '1.1rem', marginBottom: '0.25rem' }}>Aptitude Diagnostic Assessment - Batch 2026</h4>
-                <div style={{ display: 'flex', gap: '1rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Clock size={14} /> 45 Mins</span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Brain size={14} /> Topic: Quantitative Aptitude</span>
-                </div>
+            
+            <div style={{ padding: '1rem', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <strong style={{ color: 'var(--text-primary)' }}>Accenture Advanced Coding</strong>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Due in 2 days</span>
               </div>
-              <span className="badge badge-success" style={{ padding: '0.5rem 1rem' }}>
-                <CheckCircle size={14} style={{ marginRight: '0.25rem' }} /> Completed
-              </span>
+              <button className="btn btn-secondary" onClick={onStartExam} style={{ width: '100%', justifyContent: 'center' }}>
+                View Details
+              </button>
             </div>
-
           </div>
         </div>
 
-        {/* Right Column: AI Resume Scorer */}
-        <div className="glass-panel" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.2rem' }}>
-            <FileText /> AI Resume Scorer
-          </h3>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-            Upload your resume (.pdf, .docx) to analyze keyword compatibility with corporate placement profiles.
-          </p>
-
-          <label className="btn btn-secondary" style={{ flexDirection: 'column', padding: '2rem 1rem', borderStyle: 'dashed', cursor: 'pointer' }}>
-            <Upload style={{ color: 'var(--primary)', marginBottom: '0.5rem' }} />
-            <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>
-              {analyzingResume ? 'Analyzing Resume...' : 'Select Resume File'}
-            </span>
-            <input type="file" onChange={handleResumeUpload} style={{ display: 'none' }} disabled={analyzingResume} />
-          </label>
-
-          {resumeScore !== null && (
-            <div className="animate-fade-in" style={{ backgroundColor: 'var(--bg-secondary)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                <span style={{ fontWeight: 600 }}>Resume Score:</span>
-                <span className="badge badge-success">{resumeScore}/100</span>
-              </div>
+        {/* AI Resume Grader */}
+        <div className="glass-card" style={{ padding: '1.5rem', borderRadius: '12px', background: 'linear-gradient(180deg, var(--bg-secondary) 0%, rgba(15,23,42,0.5) 100%)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <h3 style={{ fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <FileText className="text-indigo-400" /> AI Resume Grader
+            </h3>
+            {resumeScore && (
+              <span className="badge badge-success">Score: {resumeScore}/100</span>
+            )}
+          </div>
+          
+          {!resumeScore ? (
+            <div style={{ border: '2px dashed var(--border-color)', borderRadius: '8px', padding: '2rem', textAlign: 'center' }}>
+              <Brain size={40} className="text-indigo-500 mb-3 mx-auto" opacity={0.8} />
+              <p style={{ marginBottom: '1rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                Upload your resume to get instant AI feedback on missing keywords for top product companies.
+              </p>
               
-              <div style={{ marginBottom: '0.75rem' }}>
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Identified Keywords:</p>
-                <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
-                  {skillsFound.map(sk => <span key={sk} className="badge badge-primary" style={{ fontSize: '0.65rem' }}>{sk}</span>)}
+              <label className="btn btn-secondary" style={{ display: 'inline-flex', cursor: 'pointer', position: 'relative' }}>
+                <Upload size={16} style={{ marginRight: '0.5rem' }} />
+                {analyzingResume ? 'Analyzing...' : 'Upload PDF'}
+                <input type="file" accept=".pdf" style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }} onChange={handleResumeUpload} disabled={analyzingResume} />
+              </label>
+            </div>
+          ) : (
+            <div className="animate-fade-in space-y-4">
+              <div>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}><Sparkles size={14} className="inline text-yellow-400 mr-1"/> Detected Skills:</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  {skillsFound.map(skill => (
+                    <span key={skill} className="badge" style={{ backgroundColor: 'rgba(99, 102, 241, 0.1)', color: '#818cf8', border: '1px solid rgba(99,102,241,0.2)' }}>
+                      {skill}
+                    </span>
+                  ))}
                 </div>
               </div>
-
-              <div>
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Optimization Tips:</p>
-                <ul style={{ paddingLeft: '1rem', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  {aiSuggestions.map((sug, i) => <li key={i}>{sug}</li>)}
+              
+              <div style={{ marginTop: '1rem' }}>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>AI Recommendations:</p>
+                <ul style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', paddingLeft: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {aiSuggestions.map((suggestion, i) => (
+                    <li key={i} style={{ listStyleType: 'disc' }}>{suggestion}</li>
+                  ))}
                 </ul>
               </div>
+              
+              <button className="btn btn-secondary mt-2 w-full text-center" onClick={() => setResumeScore(null)}>
+                Upload Updated Version
+              </button>
             </div>
           )}
         </div>
 
       </div>
 
+      {/* Performance Overview */}
+      <div className="glass-card" style={{ padding: '1.5rem', borderRadius: '12px' }}>
+        <h3 style={{ fontSize: '1.2rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <Award className="text-yellow-500" /> Skill Proficiency Matrix
+        </h3>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+          {[
+            { name: 'Data Structures', score: 85, color: '#38bdf8' },
+            { name: 'Algorithms', score: 68, color: '#f59e0b' },
+            { name: 'Database Design', score: 92, color: '#10b981' },
+            { name: 'Quantitative Aptitude', score: 55, color: '#ef4444' }
+          ].map(skill => (
+            <div key={skill.name} style={{ padding: '1rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>{skill.name}</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: skill.color }}>{skill.score}%</span>
+              </div>
+              <div style={{ width: '100%', height: '6px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                <div style={{ width: `${skill.score}%`, height: '100%', backgroundColor: skill.color, borderRadius: '3px' }}></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
